@@ -16,4 +16,4 @@ for sale in sales:
     if old_value == new_value:
         continue
     msg = "<ul><li><b>Margin:</b> %(old)s &#8594; %(new)s </li></ul>" % dict(old=old_value, new=sale.margin)
-    self.message_post(cr, uid, sale.id, body=msg, type='comment', subject="Update/Fix Sale Order Margin server action has been run", subtype='html')
+    self.message_post(cr, uid, sale.id, body=msg, type='comment', subject="Update/Fix sale order margin Server Action has been ran", subtype='html')
