@@ -1,3 +1,6 @@
+# TODO delete next line
+start_at = datetime.datetime.now()
+
 # Name:         Fix sale orders imported via CSV: Update UoS Qty needed for compute sale order margin
 # Base Mode:    Sales Order 
 # Action To Do: # Execute Python Code
@@ -9,39 +12,41 @@
 # Search messages posted when we fix the sale order margin
 msg_obj = self.pool["mail.message"]
 subject = "Update/Fix sale order margin Server Action has been ran"
-messages = msg_obj.browse(cr, 1, msg_obj.search(cr, 1, [("subject", "ilike", subject), ("model", "=", "sale.order")]))
+messages = msg_obj.browse(cr, 1, msg_obj.search(cr, 1, [("subject", "=", subject), ("model", "=", "sale.order")]))
 
-# Get the sale order browseables related to the posted messages.
-sale_obj = self.pool["sale.order"]
-sales = sale_obj.browse(cr, 1, [msg.res_id for msg in messages])
+# TODO uncomment
+# # Get the sale order browseables related to the posted messages.
+# sale_obj = self.pool["sale.order"]
+# sales = sale_obj.browse(cr, 1, [msg.res_id for msg in messages])
 
-# TODO delete next lines
-# raise Warning(str(len(sales)) + " " + str(sales))
+# TODO delete next line
 sales = self.pool["sale.order"].browse(cr, uid, context["active_ids"], context=context)
 
 for sale in sales:
-
-    if not sale.order_line:
+    lines2update = [line for line in sale.order_line if not line.product_uos_qty]
+    if not lines2update:
         continue
+    msg_margin = "<li><b>Margin:</b> " + str(sale.margin) + " &#8594; "
 
-    msg = ""
-    for line in sale.order_line:
-        if line.product_uos_qty:
-            continue
-        msg += "<li><b>Line " + str(line.sequence2) + " - UoS Qty:</b> %s &#8594; " % line.product_uos_qty
-        line.write({"product_uos_qty": line.product_uom_qty})
-        msg += str(line.product_uos_qty) + "</li>"
+    sale.write({"order_line": [
+        (1, line.id, {"product_uos_qty": line.product_uom_qty}) for line in lines2update]})
 
-    if not msg:
-        continue
-
-    # Trigger the changes in one of the lines to update the sale order
-    # margin again to the correct value of the new lines
-    msg_init = "<li><b>Margin:</b> " + str(sale.margin) + " &#8594; "
-    sale.order_line[0].write({'purchase_price': sale.order_line[0].purchase_price * 1.0})
-    msg_init+= str(sale.margin) + "</li>"
-
+    msg_line_data = ''.join([
+        "\n<li><b>Line " + str(line.sequence2) +
+        " - UoS Qty:</b> 0.0 &#8594; " +
+        str(line.product_uos_qty) + "</li>"
+        for line in lines2update])
+    msg_margin += str(sale.margin) + "</li>"
     self.message_post(
         cr, uid, sale.id, type='comment', subtype='html',
-        body="<ul>"+msg_init+msg+"</ul>",
+        body="<ul>"+msg_margin+msg_line_data+"</ul>",
         subject="Fix CSV imported sale orders (UoS Qty = UoM Qty) to properly compute sale order margin")
+
+# Testing times
+stop_at = datetime.datetime.now()
+raise Warning(
+    "\n Messages: " + str(len(messages)) +
+    "\n New message: " + sale.message_ids[0].body +
+    "\n quick enough?" "\n start at " + str(start_at) +
+    "\n stop at " + str(stop_at) +
+    "\n Time spent " + str(stop_at - start_at))
